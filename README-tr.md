@@ -33,6 +33,7 @@ Sidestep, romanvht’nin geliştirdiği [ByeByeDPI](https://github.com/romanvht/
 * **Tek düğme.** Bağlanmak için dokunun. Ekran ne olduğunu ve sırada ne yapmanız gerektiğini söyler.
 * **Çalışanı kendisi bulur.** Strateji bulucu, hazır stratejileri seçtiğiniz sitelerde dener, her birine puan verir ve en iyisini tek dokunuşla uygulamanızı sağlar.
 * **Kayıtlı stratejiler.** Stratejileri ana ekrandan değiştirin. Strateji düzenleyicide sabitleyin, yeniden adlandırın ve düzenleyin.
+* **Engellenen uygulamalar.** Sidestep hangi ülkede olduğunuzu anlar ve orada engellenen uygulamaları listeler. Bunları geliştiricilerinin resmî sitelerinden veya F-Droid’den yükler ya da Google Play veya Aurora Store’da açar. Siz bir düğmeye dokunmadan hiçbir şey indirilmez.
 * **Yeni başlayanlar ve uzmanlar için.** Görsel düzenleyiciyi kullanın ya da ByeDPI komut satırı argümanlarını kendiniz yazın.
 * **VPN veya proxy.** VPN modu tüm uygulamalar, seçtikleriniz dışındaki tüm uygulamalar veya yalnızca seçtikleriniz için çalışır. Proxy modu, tek tek uygulamalar için yerel bir SOCKS5 proxy sunar.
 * **Kendiliğinden başlar.** Cihaz açıldığında veya uygulamayı açtığınızda bağlanır. Hızlı ayarlar kutucuğu ve sabitlenmiş stratejiler için ana ekran kısayolları.
@@ -76,6 +77,10 @@ git clone --recurse-submodules https://github.com/metetv2021-cloud/ByeByeDPI.git
 `./gradlew assembleRelease` daha küçük ve optimize edilmiş APK’lar derler. Bunlar imzasızdır; `apksigner` ile kendi anahtarınızla imzalayın.
 
 Bu depoya yapılan her push GitHub Actions’ta da derlenir. Hata ayıklama APK’larını ilgili çalıştırmanın **Artifacts** bölümünden indirebilirsiniz.
+
+### Engellenen uygulamalar listesini güncelleme
+
+Liste `app/src/main/assets/blocked_apps.json` dosyasındadır. Her uygulamada paket adları, resmî sitesi, isteğe bağlı bir indirme yolu (`apk`, `json`, `fdroid` veya `page`) ve engellendiği (`blocked`) ya da kısıtlandığı (`restricted`) ülkeler bulunur. Düzenledikten sonra `updated` alanını bugünün tarihi yapın ve `master` dalına gönderin: biri **Listeyi güncelle**’ye dokunduğunda uygulama yeni listeyi alır. Güvenlik için indirmeler yalnızca `AppCatalogUtils.kt` içindeki `trustedHosts` sitelerinden yapılabilir; yeni bir indirme sitesi için uygulama güncellemesi gerekir.
 
 ### Çeviriler
 

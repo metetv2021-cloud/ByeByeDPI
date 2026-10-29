@@ -33,6 +33,7 @@ Sidestep is a redesigned fork of [ByeByeDPI](https://github.com/romanvht/ByeByeD
 * **One button.** Tap to connect. The screen tells you what is happening and what to do next.
 * **Finds what works.** The strategy finder tests ready-made strategies against the sites you choose, scores each one and lets you apply the best one in one tap.
 * **Saved strategies.** Switch strategies from the main screen. Pin, rename and edit them in the strategy editor.
+* **Blocked apps.** Sidestep works out which country you are in and lists the apps that are blocked there. It installs them from their developers' official sites or F-Droid, or opens them in Google Play or Aurora Store. Nothing is downloaded until you tap a button.
 * **For beginners and experts.** Use the visual editor, or write ByeDPI command-line arguments yourself.
 * **VPN or proxy.** VPN mode works for all apps, all apps except the ones you choose, or only the ones you choose. Proxy mode gives you a local SOCKS5 proxy for single apps.
 * **Starts by itself.** Connect when the device boots or when you open the app. Quick Settings tile and home screen shortcuts for pinned strategies.
@@ -78,6 +79,10 @@ git clone --recurse-submodules https://github.com/metetv2021-cloud/ByeByeDPI.git
 `./gradlew assembleRelease` builds smaller, optimized APKs. They are unsigned; sign them with your own key using `apksigner`.
 
 Every push to this repository is also built on GitHub Actions. You can download the debug APKs from the run's **Artifacts** section.
+
+### Updating the blocked apps list
+
+The list is in `app/src/main/assets/blocked_apps.json`. Each app has its package names, its official site, an optional download (`apk`, `json`, `fdroid` or `page`) and the countries where it is `blocked` or `restricted`. After editing, change `updated` to today's date and push to the `master` branch: the app picks up the new list when someone taps **Update the list**. For safety, downloads may only come from the sites in `trustedHosts` in `AppCatalogUtils.kt`, so a new download site needs an app update.
 
 ### Translations
 

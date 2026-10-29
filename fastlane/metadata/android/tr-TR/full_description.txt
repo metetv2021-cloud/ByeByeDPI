@@ -5,6 +5,7 @@
 * Bağlanmak için tek düğme, anlaşılır durum ve ipuçları<br>
 * Strateji bulucu: hazır stratejileri ağınızda dener, puanlar ve en iyisini tek dokunuşla uygular<br>
 * Ana ekrandan değiştirebileceğiniz, sabitleyip yeniden adlandırabileceğiniz kayıtlı stratejiler<br>
+* Engellenen uygulamalar: ülkenizi anlar, orada engellenen uygulamaları listeler ve onları resmî sitelerinden veya F-Droid’den yükler<br>
 * Görsel düzenleyici veya uzmanlar için ByeDPI komut satırı argümanları<br>
 * Tüm uygulamalar, seçtikleriniz dışındakiler veya yalnızca seçtikleriniz için VPN modu<br>
 * Tek tek uygulamalar için yerel SOCKS5 proxy modu<br>
