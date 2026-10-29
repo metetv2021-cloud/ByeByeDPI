@@ -48,6 +48,10 @@
                 layout="@layout/item_main_row" />
 
             <include
+                android:id="@+id/action_blocked_apps"
+                layout="@layout/item_main_row" />
+
+            <include
                 android:id="@+id/action_editor"
                 layout="@layout/item_main_row" />
 

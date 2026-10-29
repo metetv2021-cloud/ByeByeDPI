@@ -1,0 +1,303 @@
+{
+  "_comment": "Apps that are blocked in some countries. Statuses: blocked, or restricted (slowed down or partly blocked). Download links must be on a host listed in AppCatalogUtils.trustedHosts. Change 'updated' when editing, so that the app picks up the new list with 'Update the list'.",
+  "version": 1,
+  "updated": "2026-10-29",
+  "noPlay": [
+    "CN"
+  ],
+  "apps": [
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "category": "video",
+      "packages": [
+        "com.google.android.youtube"
+      ],
+      "play": "com.google.android.youtube",
+      "website": "https://www.youtube.com",
+      "regions": {
+        "RU": "blocked",
+        "IR": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "category": "messenger",
+      "packages": [
+        "org.telegram.messenger.web",
+        "org.telegram.messenger"
+      ],
+      "play": "org.telegram.messenger",
+      "website": "https://telegram.org/android",
+      "download": {
+        "type": "apk",
+        "url": "https://telegram.org/dl/android/apk"
+      },
+      "regions": {
+        "RU": "restricted",
+        "IR": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp",
+      "category": "messenger",
+      "packages": [
+        "com.whatsapp"
+      ],
+      "play": "com.whatsapp",
+      "website": "https://www.whatsapp.com/android/",
+      "download": {
+        "type": "page",
+        "url": "https://www.whatsapp.com/android/",
+        "pattern": "https://scontent\\.whatsapp\\.net/[^\"'\\s<>]+?/WhatsApp\\.apk[^\"'\\s<>]*"
+      },
+      "regions": {
+        "RU": "blocked",
+        "IR": "restricted",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "signal",
+      "name": "Signal",
+      "category": "messenger",
+      "packages": [
+        "org.thoughtcrime.securesms"
+      ],
+      "play": "org.thoughtcrime.securesms",
+      "website": "https://signal.org/android/apk/",
+      "download": {
+        "type": "json",
+        "url": "https://updates.signal.org/android/latest.json"
+      },
+      "regions": {
+        "RU": "blocked",
+        "IR": "blocked",
+        "CN": "blocked",
+        "VE": "blocked"
+      }
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "category": "social",
+      "packages": [
+        "com.instagram.android"
+      ],
+      "play": "com.instagram.android",
+      "website": "https://www.instagram.com",
+      "regions": {
+        "RU": "blocked",
+        "IR": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "category": "social",
+      "packages": [
+        "com.facebook.katana"
+      ],
+      "play": "com.facebook.katana",
+      "website": "https://www.facebook.com",
+      "regions": {
+        "RU": "blocked",
+        "IR": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "x",
+      "name": "X",
+      "category": "social",
+      "packages": [
+        "com.twitter.android"
+      ],
+      "play": "com.twitter.android",
+      "website": "https://x.com",
+      "regions": {
+        "RU": "blocked",
+        "IR": "blocked",
+        "CN": "blocked",
+        "VE": "restricted"
+      }
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "category": "messenger",
+      "packages": [
+        "com.discord"
+      ],
+      "play": "com.discord",
+      "website": "https://discord.com/download",
+      "regions": {
+        "RU": "blocked",
+        "TR": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "viber",
+      "name": "Viber",
+      "category": "messenger",
+      "packages": [
+        "com.viber.voip"
+      ],
+      "play": "com.viber.voip",
+      "website": "https://www.viber.com",
+      "regions": {
+        "RU": "blocked"
+      }
+    },
+    {
+      "id": "snapchat",
+      "name": "Snapchat",
+      "category": "social",
+      "packages": [
+        "com.snapchat.android"
+      ],
+      "play": "com.snapchat.android",
+      "website": "https://www.snapchat.com",
+      "regions": {
+        "RU": "blocked"
+      }
+    },
+    {
+      "id": "roblox",
+      "name": "Roblox",
+      "category": "game",
+      "packages": [
+        "com.roblox.client"
+      ],
+      "play": "com.roblox.client",
+      "website": "https://www.roblox.com",
+      "regions": {
+        "RU": "blocked"
+      }
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "category": "social",
+      "packages": [
+        "com.linkedin.android"
+      ],
+      "play": "com.linkedin.android",
+      "website": "https://www.linkedin.com",
+      "regions": {
+        "RU": "blocked"
+      }
+    },
+    {
+      "id": "wattpad",
+      "name": "Wattpad",
+      "category": "reading",
+      "packages": [
+        "wp.wattpad"
+      ],
+      "play": "wp.wattpad",
+      "website": "https://www.wattpad.com",
+      "regions": {
+        "TR": "blocked"
+      }
+    },
+    {
+      "id": "wikipedia",
+      "name": "Wikipedia",
+      "category": "knowledge",
+      "packages": [
+        "org.wikipedia"
+      ],
+      "play": "org.wikipedia",
+      "website": "https://www.wikipedia.org",
+      "download": {
+        "type": "fdroid"
+      },
+      "regions": {
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "tor",
+      "name": "Tor Browser",
+      "category": "browser",
+      "packages": [
+        "org.torproject.torbrowser"
+      ],
+      "play": "org.torproject.torbrowser",
+      "website": "https://www.torproject.org/download/",
+      "tool": true,
+      "regions": {
+        "RU": "blocked",
+        "CN": "blocked"
+      }
+    },
+    {
+      "id": "psiphon",
+      "name": "Psiphon",
+      "category": "vpn",
+      "packages": [
+        "com.psiphon3",
+        "com.psiphon3.subscription"
+      ],
+      "play": "com.psiphon3.subscription",
+      "website": "https://psiphon.ca/en/download.html",
+      "tool": true,
+      "download": {
+        "type": "apk",
+        "url": "https://psiphon.ca/PsiphonAndroid.apk"
+      },
+      "regions": {}
+    },
+    {
+      "id": "protonvpn",
+      "name": "Proton VPN",
+      "category": "vpn",
+      "packages": [
+        "ch.protonvpn.android"
+      ],
+      "play": "ch.protonvpn.android",
+      "website": "https://protonvpn.com/download",
+      "tool": true,
+      "download": {
+        "type": "fdroid"
+      },
+      "regions": {}
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora Store",
+      "category": "store",
+      "packages": [
+        "com.aurora.store"
+      ],
+      "website": "https://auroraoss.com",
+      "tool": true,
+      "download": {
+        "type": "fdroid"
+      },
+      "regions": {}
+    },
+    {
+      "id": "fdroid",
+      "name": "F-Droid",
+      "category": "store",
+      "packages": [
+        "org.fdroid.fdroid"
+      ],
+      "website": "https://f-droid.org",
+      "tool": true,
+      "download": {
+        "type": "apk",
+        "url": "https://f-droid.org/F-Droid.apk"
+      },
+      "regions": {}
+    }
+  ]
+}

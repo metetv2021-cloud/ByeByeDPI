@@ -8,6 +8,8 @@
     <string name="notification_title" translatable="false">@string/app_name</string>
     <string name="byedpi_docs" translatable="false">https://github.com/hufrea/byedpi/blob/main/README.md</string>
     <string name="source_code_url" translatable="false">https://github.com/metetv2021-cloud/ByeByeDPI</string>
+    <!-- The list of blocked apps. "Update the list" downloads this file, so it must stay in the default branch. -->
+    <string name="catalog_url" translatable="false">https://raw.githubusercontent.com/metetv2021-cloud/ByeByeDPI/master/app/src/main/assets/blocked_apps.json</string>
     <string name="proxy_address" translatable="false">%1$s:%2$s</string>
     <string name="test_result_count" translatable="false">%1$d/%2$d</string>
 
@@ -319,6 +321,66 @@
     <string name="domain_list_reset">Reset lists</string>
     <string name="domain_list_reset_confirm">The built-in lists will be restored and your own lists deleted.</string>
     <string name="domain_list_reset_done">Lists reset</string>
+
+    <!-- Blocked apps -->
+    <string name="blocked_apps">Blocked apps</string>
+    <string name="blocked_apps_summary">Install apps that are blocked in your country (%1$s)</string>
+    <string name="blocked_apps_summary_unknown">Install apps that are blocked in your country</string>
+    <string name="blocked_apps_country">Your country</string>
+    <string name="blocked_apps_country_detected">Found automatically</string>
+    <string name="blocked_apps_country_chosen">Chosen by you</string>
+    <string name="blocked_apps_country_unknown">Unknown</string>
+    <string name="blocked_apps_country_auto">Automatic: %1$s</string>
+    <string name="blocked_apps_country_auto_unknown">Automatic</string>
+    <string name="blocked_apps_change">Change</string>
+    <string name="blocked_apps_connect_hint">Connect first, so that blocked sites can be reached for downloads.</string>
+    <string name="blocked_apps_no_play">Google Play doesn\'t work in your country (%1$s), so apps are installed from their official sites or with Aurora Store.</string>
+    <string name="blocked_apps_section_country">Blocked in your country (%1$s)</string>
+    <string name="blocked_apps_section_tools">Tools that help anywhere</string>
+    <string name="blocked_apps_none">The list has no blocked apps for your country (%1$s) yet.</string>
+    <string name="blocked_apps_none_unknown">Choose your country to see which apps are blocked there.</string>
+    <string name="blocked_apps_footer">Apps are downloaded from their developers\' official sites or from F-Droid, and Android asks you before installing them. Blocks change often, so the list may be out of date. Last update: %1$s.</string>
+    <string name="blocked_apps_update">Update the list</string>
+    <string name="blocked_apps_updated">The list is updated</string>
+    <string name="blocked_apps_up_to_date">The list is already up to date</string>
+    <string name="blocked_apps_update_failed">Could not update the list. Connect and try again.</string>
+    <string name="app_status_blocked">Blocked</string>
+    <string name="app_status_restricted">Restricted</string>
+    <string name="app_category_messenger">Messenger</string>
+    <string name="app_category_social">Social network</string>
+    <string name="app_category_video">Video</string>
+    <string name="app_category_game">Games</string>
+    <string name="app_category_reading">Reading</string>
+    <string name="app_category_knowledge">Encyclopedia</string>
+    <string name="app_category_browser">Browser</string>
+    <string name="app_category_vpn">Against censorship</string>
+    <string name="app_category_store">App store</string>
+    <string name="tool_psiphon">Free app for getting around censorship</string>
+    <string name="tool_tor">Private browser that uses the Tor network</string>
+    <string name="tool_protonvpn">VPN with a free plan</string>
+    <string name="tool_aurora">Gets apps from Google Play, also ones hidden in your country</string>
+    <string name="tool_fdroid">Store of free and open-source apps</string>
+    <string name="app_action_install">Install</string>
+    <string name="app_action_open">Open</string>
+    <string name="app_action_play">Google Play</string>
+    <string name="app_action_aurora">Aurora Store</string>
+    <string name="app_action_website">Official site</string>
+    <string name="app_more_options">More options</string>
+    <string name="app_download_preparing">Preparing the download…</string>
+    <string name="app_download_progress">Downloading… %1$d%%</string>
+    <string name="app_download_size">Downloading… %1$s</string>
+    <string name="app_download_checking">Checking the file…</string>
+    <string name="app_download_failed">Could not download %1$s. Check the connection and try again.</string>
+    <string name="app_download_wrong_file">The downloaded file is not %1$s, so it was deleted.</string>
+    <string name="app_install_failed">Could not open the installer</string>
+    <string name="app_install_permission_title">Allow installing apps</string>
+    <string name="app_install_permission_text">To install apps, Android needs your permission for %1$s. You only have to allow it once.</string>
+    <string name="app_install_permission_open">Open settings</string>
+    <string name="app_aurora_needed">Aurora Store gets apps from Google Play, also ones that are hidden in your country. Install it first.</string>
+    <string name="app_store_unavailable">Google Play is not available on this device</string>
+    <string name="app_not_in_vpn">%1$s does not use %2$s yet</string>
+    <string name="app_add_to_vpn">Add</string>
+    <string name="app_added_to_vpn">%1$s now uses %2$s</string>
 
     <!-- Diagnostics -->
     <string name="diagnostic_copy">Copy</string>

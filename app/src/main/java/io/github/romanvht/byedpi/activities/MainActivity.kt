@@ -266,12 +266,14 @@ class MainActivity : BaseActivity() {
         details.modeRow.bind(R.drawable.ic_vpn_key, R.string.mode_setting)
         details.strategyRow.bind(R.drawable.ic_tune, R.string.main_strategy)
         details.actionFindStrategy.bind(R.drawable.ic_speed, R.string.title_test, R.string.main_find_strategy_summary)
+        details.actionBlockedApps.bind(R.drawable.ic_get_app, R.string.blocked_apps)
         details.actionEditor.bind(R.drawable.ic_code, R.string.main_editor, R.string.main_editor_summary)
         details.actionSettings.bind(R.drawable.baseline_settings_24, R.string.title_settings, R.string.main_settings_summary)
 
         details.modeRow.root.setOnClickListener { showModePicker() }
         details.strategyRow.root.setOnClickListener { onStrategyClicked() }
         details.actionFindStrategy.root.setOnClickListener { openStrategyFinder() }
+        details.actionBlockedApps.root.setOnClickListener { startActivity(Intent(this, BlockedAppsActivity::class.java)) }
         details.actionEditor.root.setOnClickListener { openEditor() }
         details.actionSettings.root.setOnClickListener { openSettings() }
     }
@@ -446,6 +448,10 @@ class MainActivity : BaseActivity() {
     private fun updateSetupRows() {
         val prefs = getPreferences()
         val details = binding.detailsPanel
+
+        details.actionBlockedApps.summary.text = RegionUtils.currentCountry(this)
+            ?.let { getString(R.string.blocked_apps_summary, RegionUtils.countryName(this, it)) }
+            ?: getString(R.string.blocked_apps_summary_unknown)
         val running = appStatus.first == AppStatus.Running
         val mode = if (running) appStatus.second else prefs.mode()
 
