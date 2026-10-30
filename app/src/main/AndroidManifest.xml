@@ -56,6 +56,11 @@
             android:name=".activities.BlockedAppsActivity"
             android:exported="false" />
 
+        <!-- Results of installing split bundles from the blocked apps screen -->
+        <receiver
+            android:name=".receiver.InstallResultReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.apks"

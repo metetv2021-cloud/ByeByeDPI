@@ -40,9 +40,10 @@ object NetUtils {
     }
 
     /** Downloads a small text file, such as a web page or a JSON file. */
-    fun readText(context: Context, url: URL, maxBytes: Int): String {
+    fun readText(context: Context, url: URL, maxBytes: Int, headers: Map<String, String> = emptyMap()): String {
         val connection = open(context, url)
         try {
+            for ((name, value) in headers) connection.setRequestProperty(name, value)
             val code = connection.responseCode
             if (code !in 200..299) throw IOException("HTTP $code for ${url.host}")
             return connection.inputStream.use { readLimited(it, maxBytes) }

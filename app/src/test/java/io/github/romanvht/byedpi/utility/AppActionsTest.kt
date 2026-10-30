@@ -1,8 +1,10 @@
 package io.github.romanvht.byedpi.utility
 
+import android.content.Intent
 import io.github.romanvht.byedpi.data.BlockedApp
 import io.github.romanvht.byedpi.data.CatalogDownload
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 
@@ -16,13 +18,15 @@ class AppActionsTest {
         playPackage = if (play) "com.example.app" else null,
         website = if (website) "https://example.com" else null,
         tool = false,
-        download = if (download) CatalogDownload(type = "apk", url = "https://telegram.org/app.apk") else null,
+        download = if (download) CatalogDownload(type = "apkpure") else null,
+        signatures = setOf("a".repeat(64)),
         regions = emptyMap(),
     )
 
     @Test
-    fun officialDownloadComesFirst() {
+    fun directDownloadComesFirst() {
         assertEquals(AppAction.Install, AppActions.primary(app(download = true), installed = false, state = null, noPlay = false))
+        assertEquals(AppAction.Install, AppActions.primary(app(download = true), installed = false, state = null, noPlay = true))
     }
 
     @Test
@@ -35,21 +39,29 @@ class AppActionsTest {
         val app = app(download = true)
         assertEquals(AppAction.Cancel, AppActions.primary(app, false, AppDownloads.State.Downloading(10, 100), false))
         assertEquals(AppAction.Cancel, AppActions.primary(app, false, AppDownloads.State.Preparing, false))
-        assertEquals(AppAction.InstallDownloaded, AppActions.primary(app, false, AppDownloads.State.Ready(File("a.apk")), false))
-        assertEquals(AppAction.Install, AppActions.primary(app, false, AppDownloads.State.Failed(wrongFile = false), false))
+        assertEquals(AppAction.InstallDownloaded, AppActions.primary(app, false, AppDownloads.State.Ready(listOf(File("a.apk"))), false))
+        assertEquals(AppAction.Install, AppActions.primary(app, false, AppDownloads.State.Failed(AppDownloads.Reason.Network), false))
     }
 
     @Test
-    fun withoutGooglePlayAuroraStoreIsUsed() {
+    fun noButtonWhileAndroidInstalls() {
+        val app = app(download = true)
+        assertNull(AppActions.primary(app, false, AppDownloads.State.Installing, false))
+        assertNull(AppActions.primary(app, false, AppDownloads.State.Confirm(Intent()), false))
+    }
+
+    @Test
+    fun withoutDownloadGooglePlayOrTheWebsite() {
         assertEquals(AppAction.Play, AppActions.primary(app(), installed = false, state = null, noPlay = false))
-        assertEquals(AppAction.Aurora, AppActions.primary(app(), installed = false, state = null, noPlay = true))
+        assertEquals(AppAction.Website, AppActions.primary(app(), installed = false, state = null, noPlay = true))
         assertEquals(AppAction.Website, AppActions.primary(app(play = false), installed = false, state = null, noPlay = false))
     }
 
     @Test
-    fun otherActionsSkipThePrimaryOne() {
-        assertEquals(listOf(AppAction.Aurora, AppAction.Website), AppActions.others(app(), AppAction.Play))
-        assertEquals(listOf(AppAction.Play, AppAction.Aurora, AppAction.Website), AppActions.others(app(download = true), AppAction.Install))
-        assertEquals(emptyList<AppAction>(), AppActions.others(app(play = false), AppAction.Website))
+    fun otherActions() {
+        assertEquals(listOf(AppAction.Play, AppAction.Website), AppActions.others(app(download = true), AppAction.Install, noPlay = false))
+        // Google Play is not offered where it does not work
+        assertEquals(listOf(AppAction.Website), AppActions.others(app(download = true), AppAction.Install, noPlay = true))
+        assertEquals(emptyList<AppAction>(), AppActions.others(app(play = false), AppAction.Website, noPlay = false))
     }
 }

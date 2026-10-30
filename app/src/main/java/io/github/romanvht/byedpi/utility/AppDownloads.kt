@@ -1,7 +1,12 @@
 package io.github.romanvht.byedpi.utility
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.github.romanvht.byedpi.data.BlockedApp
 import io.github.romanvht.byedpi.data.CatalogDownload
@@ -22,31 +27,46 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
+import java.net.URLEncoder
 import java.security.MessageDigest
+import java.util.zip.ZipFile
 import kotlin.coroutines.coroutineContext
 
 /**
- * Downloads apps from their official sources and checks them before they are installed.
+ * Downloads apps, checks them and hands them to Android's installer.
  * Downloads keep running when the screen is closed or rotated.
  */
 object AppDownloads {
     private const val TAG = "AppDownloads"
     private const val ATTEMPTS = 4
+    private const val MIRROR_API = "https://tapi.pureapk.com/v3/get_app_his_version"
 
     sealed interface State {
         data object Preparing : State
         data class Downloading(val bytes: Long, val total: Long) : State
         data object Checking : State
-        data class Ready(val file: File) : State
-        data class Failed(val wrongFile: Boolean) : State
+        /** Ready to install: one APK, or the base APK and its splits. */
+        data class Ready(val files: List<File>) : State
+        data object Installing : State
+        /** Android waits for the user to confirm the installation. */
+        data class Confirm(val intent: Intent) : State
+        /** [files] are kept when only the installation failed, so it can be tried again without a new download. */
+        data class Failed(val reason: Reason, val files: List<File>? = null) : State
     }
+
+    enum class Reason { Network, WrongFile, NeedsNewerAndroid, UnsupportedDevice, InstallFailed, InstallConflict }
+
+    private class Source(val url: URL, val sha256: String? = null, val sha1: String? = null, val bundle: Boolean = false)
+
+    private class Unavailable(val reason: Reason, message: String) : Exception(message)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val jobs = mutableMapOf<String, Job>()
     private val mutableStates = MutableStateFlow<Map<String, State>>(emptyMap())
     val states: StateFlow<Map<String, State>> = mutableStates.asStateFlow()
 
-    private class Source(val url: URL, val sha256: String?)
+    /** Files of the bundles being installed, to offer them again when the installation fails. */
+    private val installing = mutableMapOf<String, List<File>>()
 
     fun start(context: Context, app: BlockedApp) {
         val download = app.download ?: return
@@ -56,17 +76,17 @@ object AppDownloads {
             setState(app.id, State.Preparing)
             jobs[app.id] = scope.launch {
                 val state = try {
-                    val file = download(appContext, app, download)
-                    State.Ready(file)
+                    State.Ready(download(appContext, app, download))
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: WrongFileException) {
-                    Log.w(TAG, "Wrong file for ${app.id}: ${e.message}")
-                    State.Failed(wrongFile = true)
+                } catch (e: Unavailable) {
+                    Log.w(TAG, "${app.id} can't be installed: ${e.message}")
+                    State.Failed(e.reason)
                 } catch (e: Exception) {
                     Log.w(TAG, "Download of ${app.id} failed", e)
-                    State.Failed(wrongFile = false)
+                    State.Failed(Reason.Network)
                 }
+                if (state is State.Failed) appDir(appContext, app.id)?.deleteRecursively()
                 setState(app.id, state)
             }
         }
@@ -74,69 +94,165 @@ object AppDownloads {
 
     fun cancel(context: Context, appId: String) {
         synchronized(jobs) { jobs.remove(appId)?.cancel() }
-        apkFile(context, appId)?.delete()
+        appDir(context, appId)?.deleteRecursively()
         setState(appId, null)
     }
 
     /** Forgets a finished download, for example after the app was installed. */
-    fun clear(context: Context, appId: String, deleteFile: Boolean) {
+    fun clear(context: Context, appId: String, deleteFiles: Boolean) {
         synchronized(jobs) {
             if (jobs[appId]?.isActive == true) return
             jobs.remove(appId)
         }
-        if (deleteFile) apkFile(context, appId)?.delete()
+        if (deleteFiles) appDir(context, appId)?.deleteRecursively()
         setState(appId, null)
     }
 
-    /** Deletes old downloaded files that are not in use. */
+    /** After a failed installation: offers to install the same files again. */
+    fun keepFiles(appId: String, files: List<File>) {
+        if (files.all { it.isFile }) setState(appId, State.Ready(files)) else setState(appId, null)
+    }
+
+    /** Deletes old downloads that are not in use. */
     fun cleanUp(context: Context) {
         val dir = ApkInstallUtils.apkDir(context) ?: return
         val busy = states.value.keys
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         dir.listFiles()?.forEach { file ->
-            if (file.nameWithoutExtension !in busy && file.lastModified() < dayAgo) file.delete()
+            if (file.nameWithoutExtension !in busy && file.lastModified() < dayAgo) file.deleteRecursively()
         }
     }
+
+    // region Installing
+
+    /**
+     * Opens Android's installer for a finished download. A single APK goes to the system installer
+     * screen; a split bundle is installed with a PackageInstaller session.
+     */
+    fun install(activity: Activity, app: BlockedApp): Boolean {
+        val ready = states.value[app.id] as? State.Ready ?: return false
+        if (ready.files.any { !it.isFile }) {
+            clear(activity, app.id, deleteFiles = true)
+            return false
+        }
+        if (ready.files.size == 1) return ApkInstallUtils.install(activity, ready.files.first())
+
+        val appContext = activity.applicationContext
+        setState(app.id, State.Installing)
+        synchronized(installing) { installing[app.id] = ready.files }
+        scope.launch {
+            try {
+                ApkInstallUtils.installSession(appContext, app.id, app.packages.first(), ready.files)
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not start installing ${app.id}", e)
+                onInstallFailed(app.id, Reason.InstallFailed)
+            }
+        }
+        return true
+    }
+
+    /** The confirmation screen was shown; waiting for the result. */
+    fun onConfirmationShown(appId: String) {
+        if (states.value[appId] is State.Confirm) setState(appId, State.Installing)
+    }
+
+    fun onConfirmationNeeded(appId: String, intent: Intent) = setState(appId, State.Confirm(intent))
+
+    fun onInstalled(context: Context, appId: String) {
+        synchronized(installing) { installing.remove(appId) }
+        appDir(context, appId)?.deleteRecursively()
+        setState(appId, null)
+    }
+
+    fun onInstallCancelled(appId: String) {
+        val files = synchronized(installing) { installing.remove(appId) }
+        if (files != null) keepFiles(appId, files) else setState(appId, null)
+    }
+
+    fun onInstallFailed(appId: String, reason: Reason) {
+        val files = synchronized(installing) { installing.remove(appId) }
+        setState(appId, State.Failed(reason, files))
+    }
+
+    // endregion
 
     private fun setState(appId: String, state: State?) {
         mutableStates.update { if (state == null) it - appId else it + (appId to state) }
     }
 
-    private fun apkFile(context: Context, appId: String): File? =
-        ApkInstallUtils.apkDir(context)?.let { File(it, "$appId.apk") }
+    /** Each app's downloads are kept in their own folder. */
+    private fun appDir(context: Context, appId: String): File? =
+        ApkInstallUtils.apkDir(context)?.let { File(it, appId) }
 
-    private suspend fun download(context: Context, app: BlockedApp, download: CatalogDownload): File {
-        val file = apkFile(context, app.id) ?: throw IOException("No storage for downloads")
-        file.parentFile?.mkdirs()
-        file.delete()
+    private suspend fun download(context: Context, app: BlockedApp, download: CatalogDownload): List<File> {
+        val dir = appDir(context, app.id) ?: throw IOException("No storage for downloads")
+        dir.deleteRecursively()
+        if (!dir.mkdirs()) throw IOException("Could not create $dir")
 
         val source = resolve(context, app, download)
+        val file = File(dir, if (source.bundle) "bundle.xapk" else "${app.id}.apk")
         transfer(context, app.id, source.url, file)
 
         setState(app.id, State.Checking)
-        if (source.sha256 != null && !sha256(file).equals(source.sha256, ignoreCase = true)) {
-            file.delete()
-            throw WrongFileException("checksum does not match")
+        when {
+            source.sha256 != null -> if (!digest(file, "SHA-256").equals(source.sha256, ignoreCase = true)) {
+                throw Unavailable(Reason.WrongFile, "SHA-256 does not match")
+            }
+            source.sha1 != null -> if (!digest(file, "SHA-1").equals(source.sha1, ignoreCase = true)) {
+                throw Unavailable(Reason.WrongFile, "SHA-1 does not match")
+            }
         }
-        val packageName = ApkInstallUtils.packageNameOf(context, file)
-        if (packageName == null || packageName !in app.packages) {
-            file.delete()
-            throw WrongFileException("package $packageName")
+
+        val files = if (source.bundle) extractBundle(file, dir, app.packages.first()) else listOf(file)
+        verify(context, app, files.first())
+        return files
+    }
+
+    /** The base APK must be the expected app, signed with one of the developer's keys when they are known. */
+    private fun verify(context: Context, app: BlockedApp, base: File) {
+        val info = ApkInstallUtils.archiveInfo(context, base)
+            ?: throw Unavailable(Reason.WrongFile, "not a valid APK")
+        if (info.packageName !in app.packages) {
+            throw Unavailable(Reason.WrongFile, "package ${info.packageName}")
         }
-        return file
+        if (app.signatures.isNotEmpty() && info.fingerprints.none { it in app.signatures }) {
+            throw Unavailable(Reason.WrongFile, "signed with ${info.fingerprints}")
+        }
+    }
+
+    private fun extractBundle(bundle: File, dir: File, packageName: String): List<File> {
+        val files = ZipFile(bundle).use { zip ->
+            val manifest = zip.getEntry("manifest.json")?.let { entry ->
+                zip.getInputStream(entry).bufferedReader().use { it.readText() }
+            }
+            val names = try {
+                BundleUtils.apkFiles(manifest, zip.entries().asSequence().map { it.name }.toList(), packageName)
+            } catch (e: BundleUtils.BundleException) {
+                throw Unavailable(Reason.WrongFile, e.message.orEmpty())
+            }
+            names.mapIndexed { index, name ->
+                val target = File(dir, if (index == 0) "base.apk" else "split$index.apk")
+                zip.getInputStream(zip.getEntry(name)).use { input ->
+                    FileOutputStream(target).use { output -> input.copyTo(output, 64 * 1024) }
+                }
+                target
+            }
+        }
+        bundle.delete()
+        return files
     }
 
     /** Finds the link to the APK file. */
     private fun resolve(context: Context, app: BlockedApp, download: CatalogDownload): Source {
         return when (download.type) {
-            AppCatalogUtils.DOWNLOAD_APK -> Source(URL(download.url), null)
+            AppCatalogUtils.DOWNLOAD_APK -> Source(URL(download.url))
 
             AppCatalogUtils.DOWNLOAD_JSON -> {
                 // Signal's update file: {"url": "...apk", "sha256sum": "..."}
                 val json = JsonParser.parseString(NetUtils.readText(context, URL(download.url), 64 * 1024)).asJsonObject
                 val url = json.get("url")?.asString
                 if (!AppCatalogUtils.isTrustedUrl(url)) throw IOException("Untrusted link in the update file")
-                Source(URL(url), json.get("sha256sum")?.asString?.takeIf { it.length == 64 })
+                Source(URL(url), sha256 = json.get("sha256sum")?.asString?.takeIf { it.length == 64 })
             }
 
             AppCatalogUtils.DOWNLOAD_FDROID -> {
@@ -145,7 +261,7 @@ object AppDownloads {
                     NetUtils.readText(context, URL("https://f-droid.org/api/v1/packages/$packageName"), 64 * 1024)
                 ).asJsonObject
                 val versionCode = json.get("suggestedVersionCode")?.asLong ?: throw IOException("No version on F-Droid")
-                Source(URL("https://f-droid.org/repo/${packageName}_$versionCode.apk"), null)
+                Source(URL("https://f-droid.org/repo/${packageName}_$versionCode.apk"))
             }
 
             AppCatalogUtils.DOWNLOAD_PAGE -> {
@@ -155,12 +271,81 @@ object AppDownloads {
                     ?.replace("&amp;", "&")
                     ?: throw IOException("No download link on the page")
                 if (!AppCatalogUtils.isTrustedUrl(link)) throw IOException("Untrusted link on the page")
-                Source(URL(link), null)
+                Source(URL(link))
             }
+
+            AppCatalogUtils.DOWNLOAD_TEMPLATE -> {
+                // For example Tor Browser: the version comes from an update file, the link is built from it.
+                val json = JsonParser.parseString(NetUtils.readText(context, URL(download.url), 256 * 1024)).asJsonObject
+                val version = json.get(download.field.orEmpty())?.asString
+                    ?.takeIf { Regex("[0-9A-Za-z._-]{1,40}").matches(it) }
+                    ?: throw IOException("No version in the update file")
+                val abi = Build.SUPPORTED_ABIS.firstNotNullOfOrNull { download.abis?.get(it) }
+                    ?: throw Unavailable(Reason.UnsupportedDevice, "no build for ${Build.SUPPORTED_ABIS.toList()}")
+                val link = download.template.orEmpty().replace("{version}", version).replace("{abi}", abi)
+                if (!AppCatalogUtils.isTrustedUrl(link)) throw IOException("Untrusted link $link")
+                Source(URL(link))
+            }
+
+            AppCatalogUtils.DOWNLOAD_MIRROR -> resolveMirror(context, app.packages.first())
 
             else -> throw IOException("Unknown download type ${download.type}")
         }
     }
+
+    /**
+     * Asks the APKPure mirror for the newest version, in the variant for this device's processor.
+     * What it returns is not trusted: the file is installed only with the developer's signature.
+     */
+    private fun resolveMirror(context: Context, packageName: String): Source {
+        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+        val device = JsonObject().apply {
+            add("device_info", JsonObject().apply {
+                addProperty("os_ver", Build.VERSION.SDK_INT.toString())
+                add("abis", JsonArray().apply { add(abi) })
+            })
+        }
+        val url = URL("$MIRROR_API?package_name=${URLEncoder.encode(packageName, "UTF-8")}&hl=en")
+        val text = NetUtils.readText(
+            context, url, 4 * 1024 * 1024,
+            headers = mapOf("Ual-Access-Businessid" to "projecta", "Ual-Access-ProjectA" to device.toString()),
+        )
+
+        val version = JsonParser.parseString(text).asJsonObject.get("version_list")
+            ?.takeIf { it.isJsonArray }?.asJsonArray?.firstOrNull()?.asJsonObject
+            ?: throw IOException("$packageName is not on the mirror")
+        if (version.string("package_name") != packageName) throw Unavailable(Reason.WrongFile, "mirror sent another app")
+
+        val minSdk = version.string("sdk_version")?.toIntOrNull()
+        if (minSdk != null && minSdk > Build.VERSION.SDK_INT) {
+            throw Unavailable(Reason.NeedsNewerAndroid, "needs API $minSdk")
+        }
+        val nativeCode = version.get("native_code")?.takeIf { it.isJsonArray }?.asJsonArray
+            ?.filter { it.isJsonPrimitive }?.map { it.asString }.orEmpty()
+        if (nativeCode.isNotEmpty() && Build.SUPPORTED_ABIS.none { it in nativeCode }) {
+            throw Unavailable(Reason.UnsupportedDevice, "built for $nativeCode")
+        }
+        if (version.get("is_o_b_b")?.takeIf { it.isJsonPrimitive }?.asBoolean == true) {
+            throw Unavailable(Reason.UnsupportedDevice, "needs expansion files")
+        }
+
+        val asset = version.get("asset")?.takeIf { it.isJsonObject }?.asJsonObject ?: throw IOException("No file on the mirror")
+        val link = asset.string("url")?.takeIf { it.startsWith("https://") } ?: throw IOException("No https link on the mirror")
+        val bundle = when (asset.string("type")) {
+            "APK" -> false
+            "XAPK" -> true
+            else -> throw Unavailable(Reason.UnsupportedDevice, "unknown file type ${asset.string("type")}")
+        }
+        return Source(
+            url = URL(link),
+            sha256 = asset.string("file_sha256")?.takeIf { it.length == 64 },
+            sha1 = asset.string("sha1")?.takeIf { it.length == 40 },
+            bundle = bundle,
+        )
+    }
+
+    private fun JsonObject.string(name: String): String? =
+        get(name)?.takeIf { it.isJsonPrimitive }?.asString
 
     /** Downloads the file. Interrupted downloads continue where they stopped when the server allows it. */
     private suspend fun transfer(context: Context, appId: String, url: URL, file: File) {
@@ -223,8 +408,8 @@ object AppDownloads {
         }
     }
 
-    private fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+    private fun digest(file: File, algorithm: String): String {
+        val digest = MessageDigest.getInstance(algorithm)
         FileInputStream(file).use { input ->
             val buffer = ByteArray(64 * 1024)
             while (true) {
@@ -235,6 +420,4 @@ object AppDownloads {
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
-
-    private class WrongFileException(message: String) : Exception(message)
 }

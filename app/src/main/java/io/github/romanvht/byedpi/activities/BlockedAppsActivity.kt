@@ -82,9 +82,13 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                var previous = emptySet<String>()
                 AppDownloads.states.collect { states ->
                     adapter.setDownloads(states)
                     handleFinishedDownloads(states)
+                    // A finished installation removes the state: show the app as installed
+                    if (previous.any { it !in states }) refresh()
+                    previous = states.keys
                 }
             }
         }
@@ -132,7 +136,6 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
 
         val notices = buildList {
             if (!NetUtils.usesProxy(this@BlockedAppsActivity)) add(getString(R.string.blocked_apps_connect_hint))
-            if (apps.noPlay && countryName != null) add(getString(R.string.blocked_apps_no_play, countryName))
         }
 
         val rows = buildList {
@@ -177,7 +180,7 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
         knownInstalled = installed
 
         for (id in installed) {
-            if (AppDownloads.states.value[id] is AppDownloads.State.Ready) AppDownloads.clear(this, id, deleteFile = true)
+            if (AppDownloads.states.value[id] is AppDownloads.State.Ready) AppDownloads.clear(this, id, deleteFiles = true)
         }
         if (before == null) return
 
@@ -201,19 +204,19 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
         for ((id, state) in states) {
             val app = catalog.apps.firstOrNull { it.id == id } ?: continue
             when (state) {
-                is AppDownloads.State.Ready -> if (autoInstall.remove(id)) install(app, state)
+                is AppDownloads.State.Ready -> if (autoInstall.remove(id)) install(app)
+                is AppDownloads.State.Confirm -> {
+                    // Android's confirmation screen; started from here so it opens in front of the app
+                    AppDownloads.onConfirmationShown(id)
+                    if (!ApkInstallUtils.confirmInstall(this, state.intent)) {
+                        AppDownloads.onInstallFailed(id, AppDownloads.Reason.InstallFailed)
+                    }
+                }
                 is AppDownloads.State.Failed -> {
                     autoInstall.remove(id)
-                    AppDownloads.clear(this, id, deleteFile = true)
-                    val message = getString(
-                        if (state.wrongFile) R.string.app_download_wrong_file else R.string.app_download_failed,
-                        app.name
-                    )
-                    val snackbar = Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
-                    if (!state.wrongFile && appStatus.first != AppStatus.Running) {
-                        snackbar.setAction(R.string.vpn_connect) { connect() }
-                    }
-                    snackbar.show()
+                    val files = state.files
+                    if (files != null) AppDownloads.keepFiles(id, files) else AppDownloads.clear(this, id, deleteFiles = true)
+                    showFailure(app, state.reason)
                 }
                 else -> {}
             }
@@ -252,15 +255,14 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
                 if (packageName == null || !ApkInstallUtils.launch(this, packageName)) refresh()
             }
             AppAction.Install -> startDownload(app)
-            AppAction.InstallDownloaded -> (AppDownloads.states.value[app.id] as? AppDownloads.State.Ready)?.let { install(app, it) }
+            AppAction.InstallDownloaded -> install(app)
             AppAction.Cancel -> {
                 autoInstall.remove(app.id)
                 AppDownloads.cancel(this, app.id)
             }
             AppAction.Play -> app.playPackage?.let {
-                if (!ApkInstallUtils.openStorePage(this, it, aurora = false)) showMessage(getString(R.string.app_store_unavailable))
+                if (!ApkInstallUtils.openStorePage(this, it)) showMessage(getString(R.string.app_store_unavailable))
             }
-            AppAction.Aurora -> app.playPackage?.let { openInAurora(it) }
             AppAction.Website -> app.website?.let {
                 if (!ApkInstallUtils.openWebsite(this, it)) showMessage(getString(R.string.no_browser))
             }
@@ -328,19 +330,27 @@ class BlockedAppsActivity : BaseActivity(), BlockedAppAdapter.Listener {
             .show()
     }
 
-    private fun install(app: BlockedApp, state: AppDownloads.State.Ready) {
-        if (!state.file.isFile) {
-            AppDownloads.clear(this, app.id, deleteFile = false)
+    private fun install(app: BlockedApp) {
+        if (!ApkInstallUtils.canInstallApps(this)) {
+            askInstallPermission(app)
             return
         }
-        if (!ApkInstallUtils.install(this, state.file)) showMessage(getString(R.string.app_install_failed))
+        if (!AppDownloads.install(this, app)) showMessage(getString(R.string.app_install_failed))
     }
 
-    private fun openInAurora(packageName: String) {
-        if (ApkInstallUtils.openStorePage(this, packageName, aurora = true)) return
-        val aurora = catalog.apps.firstOrNull { ApkInstallUtils.AURORA_STORE in it.packages }
-        val snackbar = Snackbar.make(binding.root, R.string.app_aurora_needed, Snackbar.LENGTH_LONG)
-        if (aurora != null) snackbar.setAction(R.string.app_action_install) { startDownload(aurora) }
+    private fun showFailure(app: BlockedApp, reason: AppDownloads.Reason) {
+        val message = when (reason) {
+            AppDownloads.Reason.Network -> R.string.app_download_failed
+            AppDownloads.Reason.WrongFile -> R.string.app_download_wrong_file
+            AppDownloads.Reason.NeedsNewerAndroid -> R.string.app_needs_newer_android
+            AppDownloads.Reason.UnsupportedDevice -> R.string.app_unsupported_device
+            AppDownloads.Reason.InstallFailed -> R.string.app_install_error
+            AppDownloads.Reason.InstallConflict -> R.string.app_install_conflict
+        }
+        val snackbar = Snackbar.make(binding.root, getString(message, app.name), Snackbar.LENGTH_LONG)
+        if (reason == AppDownloads.Reason.Network && appStatus.first != AppStatus.Running) {
+            snackbar.setAction(R.string.vpn_connect) { connect() }
+        }
         snackbar.show()
     }
 

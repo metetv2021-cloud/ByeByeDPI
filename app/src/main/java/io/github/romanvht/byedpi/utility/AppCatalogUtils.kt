@@ -30,18 +30,25 @@ object AppCatalogUtils {
     const val DOWNLOAD_JSON = "json"
     const val DOWNLOAD_FDROID = "fdroid"
     const val DOWNLOAD_PAGE = "page"
+    const val DOWNLOAD_TEMPLATE = "template"
+    /** The APKPure mirror, for apps that are only on Google Play. Needs the developer's signatures. */
+    const val DOWNLOAD_MIRROR = "apkpure"
 
     val categories = setOf("messenger", "social", "video", "game", "reading", "knowledge", "browser", "vpn", "store")
 
     /**
      * Apps are only downloaded from these sites (and their subdomains), also when the list itself
      * was downloaded. Adding a site needs an app update, so a changed list cannot point anywhere else.
+     * Mirror downloads are the exception: they are trusted only when they carry the developer's signature.
      */
-    val trustedHosts = setOf("telegram.org", "signal.org", "whatsapp.com", "whatsapp.net", "psiphon.ca", "f-droid.org")
+    val trustedHosts = setOf(
+        "telegram.org", "signal.org", "whatsapp.com", "whatsapp.net", "psiphon.ca", "f-droid.org", "torproject.org",
+    )
 
     private val idPattern = Regex("[a-z0-9_-]{1,40}")
     private val packagePattern = Regex("[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+")
     private val datePattern = Regex("\\d{4}-\\d{2}-\\d{2}")
+    private val fingerprintPattern = Regex("[0-9a-f]{64}")
 
     data class Catalog(val updated: String, val noPlay: Set<String>, val apps: List<BlockedApp>) {
         companion object {
@@ -154,7 +161,8 @@ object AppCatalogUtils {
 
         val play = entry.play?.takeIf { packagePattern.matches(it) }
         val website = entry.website?.takeIf { isHttps(it) }
-        val download = entry.download?.takeIf { isUsable(it) }
+        val signatures = entry.signatures.orEmpty().mapNotNull { normalizeFingerprint(it) }.toSet()
+        val download = entry.download?.takeIf { isUsable(it, signatures) }
         if (play == null && website == null && download == null) return null
 
         val regions = entry.regions.orEmpty()
@@ -169,12 +177,20 @@ object AppCatalogUtils {
             website = website,
             tool = entry.tool == true,
             download = download,
+            signatures = signatures,
             regions = regions,
         )
     }
 
-    private fun isUsable(download: CatalogDownload): Boolean = when (download.type) {
+    /** "14:E8:82:…" or "14e882…" to lowercase hex without colons; null when it is not a SHA-256 fingerprint. */
+    fun normalizeFingerprint(value: String): String? =
+        value.replace(":", "").trim().lowercase().takeIf { fingerprintPattern.matches(it) }
+
+    private fun isUsable(download: CatalogDownload, signatures: Set<String>): Boolean = when (download.type) {
         DOWNLOAD_FDROID -> true
+        DOWNLOAD_MIRROR -> signatures.isNotEmpty()
+        DOWNLOAD_TEMPLATE -> isTrustedUrl(download.url) && !download.field.isNullOrBlank() &&
+            !download.abis.isNullOrEmpty() && isTrustedUrl(download.template?.replace("{version}", "1")?.replace("{abi}", "a"))
         DOWNLOAD_APK, DOWNLOAD_JSON -> isTrustedUrl(download.url)
         DOWNLOAD_PAGE -> isTrustedUrl(download.url) && download.pattern?.let {
             try {

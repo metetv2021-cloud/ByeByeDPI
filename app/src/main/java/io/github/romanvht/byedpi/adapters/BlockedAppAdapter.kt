@@ -196,7 +196,7 @@ class BlockedAppAdapter(private val listener: Listener) :
             if (primary != null) action.setText(label(primary))
             action.setOnClickListener { if (primary != null) listener.onAction(app, primary) }
 
-            val others = AppActions.others(app, primary)
+            val others = AppActions.others(app, primary, row.noPlay)
             more.visibility = if (others.isEmpty()) View.GONE else View.VISIBLE
             more.setOnClickListener { listener.onMore(app, others, it) }
 
@@ -204,6 +204,8 @@ class BlockedAppAdapter(private val listener: Listener) :
             when (state) {
                 AppDownloads.State.Preparing -> showProgress(null, context.getString(R.string.app_download_preparing))
                 AppDownloads.State.Checking -> showProgress(null, context.getString(R.string.app_download_checking))
+                AppDownloads.State.Installing, is AppDownloads.State.Confirm ->
+                    showProgress(null, context.getString(R.string.app_install_preparing))
                 is AppDownloads.State.Downloading -> if (state.total > 0) {
                     val percent = (state.bytes * 100 / state.total).toInt().coerceIn(0, 100)
                     showProgress(percent, context.getString(R.string.app_download_progress, percent))
@@ -242,7 +244,6 @@ class BlockedAppAdapter(private val listener: Listener) :
             AppAction.Install, AppAction.InstallDownloaded -> R.string.app_action_install
             AppAction.Cancel -> android.R.string.cancel
             AppAction.Play -> R.string.app_action_play
-            AppAction.Aurora -> R.string.app_action_aurora
             AppAction.Website -> R.string.app_action_website
         }
     }
