@@ -5,7 +5,7 @@
 * One button to connect, with a clear status and hints<br>
 * Strategy finder: tests ready-made strategies on your network, scores them and applies the best one in one tap<br>
 * Saved strategies that you can switch from the main screen, pin and rename<br>
-* Blocked apps: finds out your country, lists the apps blocked there and installs them from their official sites or F-Droid<br>
+* Blocked apps: finds out your country, lists the apps blocked there and installs them in one tap, checking that each file carries the developer's own signature<br>
 * Visual editor, or ByeDPI command-line arguments for experts<br>
 * VPN mode for all apps, all apps except the ones you choose, or only the ones you choose<br>
 * Local SOCKS5 proxy mode for single apps<br>
